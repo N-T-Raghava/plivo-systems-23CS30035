@@ -42,7 +42,10 @@ int main(void) {
     for (;;) {
         ssize_t n = recvfrom(in_fd, buf, sizeof buf, 0, NULL, NULL);
         if (n <= 0) continue;
-        /* your protocol design goes here; baseline = send once, as-is */
+
+        /* send a second copy in case one is dropped */
+        sendto(out_fd, buf, (size_t)n, 0, (struct sockaddr *)&relay,
+               sizeof relay);
         sendto(out_fd, buf, (size_t)n, 0, (struct sockaddr *)&relay,
                sizeof relay);
     }

@@ -64,3 +64,79 @@ relay done: {'up_bytes': 246000, 'down_bytes': 0, 'up_pkts': 1500, 'down_pkts': 
 **Observation:** A lost UDP packet directly becomes a missing frame because
 there is no redundancy or retransmission. Increasing the playout delay can help
 with late packets, but it cannot recover packets that are actually dropped.
+
+---
+
+## Experiment 2 — Duplicate Transmission
+
+**Change:** I sent every source frame twice instead of forwarding it only once.
+The receiver was left unchanged.
+
+**Why:** The baseline showed that a single dropped UDP packet permanently loses
+the corresponding frame. Sending a second copy was the simplest proactive way
+to reduce the probability of losing a frame without waiting for a
+retransmission request.
+
+**Result:**
+
+| Profile | Delay (ms) | Misses | Miss Rate | Overhead | Result |
+|---|---:|---:|---:|---:|---|
+| A | 40 | 7 | 0.47% | 2.05x | INVALID |
+| B | 40 | 742 | 49.47% | 2.05x | INVALID |
+| A | 140 | 2 | 0.13% | 2.05x | INVALID |
+| B | 140 | 6 | 0.40% | 2.05x | INVALID |
+
+```
+For 40ms delay Profile: 'A':
+
+relay done: {'up_bytes': 492000, 'down_bytes': 0, 'up_pkts': 3000, 'down_pkts': 0, 'dropped': 74, 'duplicated': 19}
+================ SCORE ================
+  frames               : 1500
+  deadline misses      : 7  (0.47%)   [cap 1.00%]
+  playout delay        : 40 ms   <-- your score if valid; lower wins
+  bandwidth overhead   : 2.05x   [cap 2.00x]   (up 492000B, feedback 0B)
+  RESULT               : INVALID
+  (reduce misses under 1% and overhead under 2x, THEN minimize delay)
+
+For 40ms delay Profile: 'B':
+
+relay done: {'up_bytes': 492000, 'down_bytes': 0, 'up_pkts': 3000, 'down_pkts': 0, 'dropped': 167, 'duplicated': 30}
+================ SCORE ================
+  frames               : 1500
+  deadline misses      : 742  (49.47%)   [cap 1.00%]
+  playout delay        : 40 ms   <-- your score if valid; lower wins
+  bandwidth overhead   : 2.05x   [cap 2.00x]   (up 492000B, feedback 0B)
+  RESULT               : INVALID
+  (reduce misses under 1% and overhead under 2x, THEN minimize delay)
+```
+
+```
+For 140ms delay Profile: 'A':
+
+relay done: {'up_bytes': 492000, 'down_bytes': 0, 'up_pkts': 3000, 'down_pkts': 0, 'dropped': 74, 'duplicated': 19}
+================ SCORE ================
+  frames               : 1500
+  deadline misses      : 2  (0.13%)   [cap 1.00%]
+  playout delay        : 140 ms   <-- your score if valid; lower wins
+  bandwidth overhead   : 2.05x   [cap 2.00x]   (up 492000B, feedback 0B)
+  RESULT               : INVALID
+  (reduce misses under 1% and overhead under 2x, THEN minimize delay)
+
+For 140ms delay Profile: 'B':
+
+relay done: {'up_bytes': 492000, 'down_bytes': 0, 'up_pkts': 3000, 'down_pkts': 0, 'dropped': 167, 'duplicated': 30}
+================ SCORE ================
+  frames               : 1500
+  deadline misses      : 6  (0.40%)   [cap 1.00%]
+  playout delay        : 140 ms   <-- your score if valid; lower wins
+  bandwidth overhead   : 2.05x   [cap 2.00x]   (up 492000B, feedback 0B)
+  RESULT               : INVALID
+  (reduce misses under 1% and overhead under 2x, THEN minimize delay)
+```
+
+**Observation:** Sending every frame twice greatly reduced packet-loss failures
+at a generous playout delay, but the measured bandwidth overhead was 2.05x,
+which exceeded the 2.0x limit. Profile B at 40 ms also showed that duplication
+does not solve packets arriving after their deadlines. This made full
+duplication unsuitable and motivated using parity, where one recovery packet
+can protect multiple source frames more efficiently.
