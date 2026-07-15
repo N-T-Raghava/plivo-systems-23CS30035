@@ -486,7 +486,7 @@ on a single test point.
 
 | Profile | Delay (ms) | Misses | Miss Rate | Overhead | Result |
 |---|---:|---:|---:|---:|---|
-| A | 91 | 13 | 0.87% | 1.88x | VALID |
+| B | 91 | 13 | 0.87% | 1.88x | VALID |
 
 ```
 endpoints done
