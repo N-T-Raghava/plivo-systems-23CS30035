@@ -140,3 +140,108 @@ which exceeded the 2.0x limit. Profile B at 40 ms also showed that duplication
 does not solve packets arriving after their deadlines. This made full
 duplication unsuitable and motivated using parity, where one recovery packet
 can protect multiple source frames more efficiently.
+
+
+---
+
+## Experiment 3 — Pair XOR FEC
+
+**Change:** I replaced full packet duplication with a small custom wire format.
+Every original frame was still sent once, but I added one XOR parity packet for
+each pair of consecutive frames. The receiver used the sequence information in
+the packet tag to handle reordering and reconstruct a missing frame when the
+other frame in its pair was available.
+
+**Why:** Duplicate transmission improved reliability but exceeded the bandwidth
+limit at 2.05x. Pair XOR parity allows one additional packet to protect two
+source frames, reducing the amount of redundancy while still recovering
+isolated packet losses.
+
+**Result:**
+
+| Profile | Delay (ms) | Misses | Miss Rate | Overhead | Result |
+|---|---:|---:|---:|---:|---|
+| A | 40 | 46 | 3.07% | 1.54x | INVALID |
+| B | 40 | 971 | 64.73% | 1.54x | INVALID |
+| A | 100 | 3 | 0.20% | 1.54x | VALID |
+| B | 100 | 12 | 0.80% | 1.54x | VALID |
+| A | 140 | 3 | 0.20% | 1.54x | VALID |
+| B | 140 | 12 | 0.80% | 1.54x | VALID |
+
+```
+For 40ms delay Profile: 'A':
+
+relay done: {'up_bytes': 369000, 'down_bytes': 0, 'up_pkts': 2250, 'down_pkts': 0, 'dropped': 52, 'duplicated': 14}
+================ SCORE ================
+  frames               : 1500
+  deadline misses      : 46  (3.07%)   [cap 1.00%]
+  playout delay        : 40 ms   <-- your score if valid; lower wins
+  bandwidth overhead   : 1.54x   [cap 2.00x]   (up 369000B, feedback 0B)
+  RESULT               : INVALID
+  (reduce misses under 1% and overhead under 2x, THEN minimize delay)
+
+For 40ms delay Profile: 'B':
+
+relay done: {'up_bytes': 369000, 'down_bytes': 0, 'up_pkts': 2250, 'down_pkts': 0, 'dropped': 123, 'duplicated': 25}
+================ SCORE ================
+  frames               : 1500
+  deadline misses      : 971  (64.73%)   [cap 1.00%]
+  playout delay        : 40 ms   <-- your score if valid; lower wins
+  bandwidth overhead   : 1.54x   [cap 2.00x]   (up 369000B, feedback 0B)
+  RESULT               : INVALID
+  (reduce misses under 1% and overhead under 2x, THEN minimize delay)
+```
+
+```
+For 140ms delay Profile: 'A':
+
+relay done: {'up_bytes': 369000, 'down_bytes': 0, 'up_pkts': 2250, 'down_pkts': 0, 'dropped': 52, 'duplicated': 14}
+================ SCORE ================
+  frames               : 1500
+  deadline misses      : 3  (0.20%)   [cap 1.00%]
+  playout delay        : 140 ms   <-- your score if valid; lower wins
+  bandwidth overhead   : 1.54x   [cap 2.00x]   (up 369000B, feedback 0B)
+  RESULT               : VALID
+
+For 140ms delay Profile: 'B':
+
+relay done: {'up_bytes': 369000, 'down_bytes': 0, 'up_pkts': 2250, 'down_pkts': 0, 'dropped': 123, 'duplicated': 25}
+================ SCORE ================
+  frames               : 1500
+  deadline misses      : 12  (0.80%)   [cap 1.00%]
+  playout delay        : 140 ms   <-- your score if valid; lower wins
+  bandwidth overhead   : 1.54x   [cap 2.00x]   (up 369000B, feedback 0B)
+  RESULT               : VALID
+```
+
+```
+For 100ms delay Profile: 'A':
+
+relay done: {'up_bytes': 369000, 'down_bytes': 0, 'up_pkts': 2250, 'down_pkts': 0, 'dropped': 52, 'duplicated': 14}
+================ SCORE ================
+  frames               : 1500
+  deadline misses      : 3  (0.20%)   [cap 1.00%]
+  playout delay        : 100 ms   <-- your score if valid; lower wins
+  bandwidth overhead   : 1.54x   [cap 2.00x]   (up 369000B, feedback 0B)
+  RESULT               : VALID
+
+For 100ms delay Profile: 'B':
+
+relay done: {'up_bytes': 369000, 'down_bytes': 0, 'up_pkts': 2250, 'down_pkts': 0, 'dropped': 123, 'duplicated': 25}
+================ SCORE ================
+  frames               : 1500
+  deadline misses      : 12  (0.80%)   [cap 1.00%]
+  playout delay        : 100 ms   <-- your score if valid; lower wins
+  bandwidth overhead   : 1.54x   [cap 2.00x]   (up 369000B, feedback 0B)
+  RESULT               : VALID
+```
+
+**Observation:** Pair XOR FEC reduced the measured bandwidth overhead from 2.05x
+with duplication to 1.54x while still producing valid runs at 100 ms and
+140 ms on both profiles. The identical miss counts at 100 ms and 140 ms suggest
+that the remaining misses at those delays were mainly loss patterns that a
+single pair parity packet could not recover, rather than packets that simply
+needed more time to arrive. In particular, if both source frames in a protected
+pair are unavailable, the pair parity equation alone is not enough to recover
+them. The remaining bandwidth budget therefore motivated adding a second parity
+grouping to improve recovery without exceeding the 2x limit.

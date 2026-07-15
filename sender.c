@@ -16,10 +16,28 @@
  * build: make        run: python3 run.py --delay_ms 60
  */
 #include <arpa/inet.h>
+#include <arpa/inet.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/socket.h>
 #include <unistd.h>
+
+#define PAYLOAD 160
+#define DATA 0x00000000u
+#define PAIR 0x40000000u
+
+static void send_packet(int fd, struct sockaddr_in *relay, uint32_t tag,
+                        const unsigned char *payload) {
+    unsigned char packet[4 + PAYLOAD];
+    uint32_t net_tag = htonl(tag);
+
+    memcpy(packet, &net_tag, 4);
+    memcpy(packet + 4, payload, PAYLOAD);
+
+    sendto(fd, packet, sizeof packet, 0, (struct sockaddr *)relay,
+           sizeof *relay);
+}
 
 int main(void) {
     int in_fd = socket(AF_INET, SOCK_DGRAM, 0);
@@ -39,15 +57,33 @@ int main(void) {
     relay.sin_addr.s_addr = inet_addr("127.0.0.1");
 
     unsigned char buf[2048];
+    unsigned char previous[PAYLOAD];
+    unsigned char parity[PAYLOAD];
+    uint32_t previous_seq = 0;
+    int have_previous = 0;
+
     for (;;) {
         ssize_t n = recvfrom(in_fd, buf, sizeof buf, 0, NULL, NULL);
-        if (n <= 0) continue;
+        if (n < 4 + PAYLOAD) continue;
 
-        /* send a second copy in case one is dropped */
-        sendto(out_fd, buf, (size_t)n, 0, (struct sockaddr *)&relay,
-               sizeof relay);
-        sendto(out_fd, buf, (size_t)n, 0, (struct sockaddr *)&relay,
-               sizeof relay);
+        uint32_t net_seq;
+        memcpy(&net_seq, buf, 4);
+        uint32_t seq = ntohl(net_seq);
+        unsigned char *payload = buf + 4;
+
+        send_packet(out_fd, &relay, DATA | seq, payload);
+
+        if (seq % 2 == 1 && have_previous && previous_seq == seq - 1) {
+            for (int i = 0; i < PAYLOAD; i++)
+                parity[i] = previous[i] ^ payload[i];
+
+            send_packet(out_fd, &relay, PAIR | (seq - 1), parity);
+        }
+
+        memcpy(previous, payload, PAYLOAD);
+        previous_seq = seq;
+        have_previous = 1;
     }
+
     return 0;
 }
