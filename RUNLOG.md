@@ -482,6 +482,23 @@ while 95 ms and 100 ms provide progressively more margin. The final design
 therefore exposes a clear latency-versus-robustness trade-off rather than relying
 on a single test point.
 
+### And this is at 91ms :
+
+| Profile | Delay (ms) | Misses | Miss Rate | Overhead | Result |
+|---|---:|---:|---:|---:|---|
+| A | 91 | 13 | 0.87% | 1.88x | VALID |
+
+```
+endpoints done
+relay done: {'up_bytes': 451000, 'down_bytes': 0, 'up_pkts': 2750, 'down_pkts': 0, 'dropped': 152, 'duplicated': 29}
+================ SCORE ================
+  frames               : 1500
+  deadline misses      : 13  (0.87%)   [cap 1.00%]
+  playout delay        : 91 ms   <-- your score if valid; lower wins
+  bandwidth overhead   : 1.88x   [cap 2.00x]   (up 451000B, feedback 0B)
+  RESULT               : VALID
+```
+
 ---
 
 ## Final Comparison
