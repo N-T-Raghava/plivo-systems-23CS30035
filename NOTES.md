@@ -7,6 +7,6 @@
 * Frames are sent to the player as soon as they are received or reconstructed, so `DELAY_MS` acts as the available network and recovery budget rather than an additional receiver-side holding period.
 * The final design uses no feedback or retransmission because a resend would require a request and reply to cross the hostile network before the frame deadline.
 * The measured bandwidth overhead is 1.88x, below the 2.0x limit.
-* The lowest demonstrated valid delay across both provided profiles is 90 ms, but it places Profile B exactly at the 1.00% miss-rate limit.
-* I recommend grading at `delay_ms = 95`, where Profile A had 0.00% misses and Profile B had 0.73% misses while preserving a lower delay than the 100 ms test point.
+* The lowest demonstrated valid delay across both provided profiles is 90 ms, **but it places Profile B exactly at the 1.00% miss-rate limit**.
+* **I recommend grading at `delay_ms = 95`, where Profile A had 0.00% misses and Profile B had 0.73% misses while preserving a lower delay than the 100 ms test point.**
 * The design can break under sufficiently large burst losses, correlated loss of source and parity packets, or delay spikes that push required data beyond the available playout deadline.
